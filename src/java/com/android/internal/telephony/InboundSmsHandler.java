@@ -871,6 +871,9 @@ public abstract class InboundSmsHandler extends StateMachine {
                     if (TextUtils.isEmpty(address)) {
                        address = msg.getOriginatingAddress();
                     }
+                    if (TextUtils.isEmpty(address)) {
+                       address = tracker.getAddress();   
+                    }
                 }
                 output.write(pdu, 0, pdu.length);
             }
