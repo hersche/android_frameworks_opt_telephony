@@ -23,7 +23,11 @@ LOCAL_AIDL_INCLUDES := $(LOCAL_PATH)/src/java
 LOCAL_SRC_FILES := $(call all-java-files-under, src/java) \
 	$(call all-Iaidl-files-under, src/java) \
 	$(call all-logtags-files-under, src/java)
-
+ifeq ($(strip $(MTK_C2K_SLOT2_SUPPORT)), yes)
+LOCAL_SRC_FILES := $(filter-out src/java/com/android/internal/telephony/ProxyController.java,$(LOCAL_SRC_FILES))
+else 
+LOCAL_SRC_FILES := $(filter-out src/java/com/android/internal/telephony/protect/ProxyController.java,$(LOCAL_SRC_FILES))
+endif
 LOCAL_JAVA_LIBRARIES := voip-common ims-common
 LOCAL_REQUIRED_MODULES := telresources
 
@@ -34,7 +38,26 @@ endif
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := telephony-common
 
+# Use SimServs.jar for VoLTE MMTelSS Package
++LOCAL_STATIC_JAVA_LIBRARIES += Simservs
+
 include $(BUILD_JAVA_LIBRARY)
+
+ifeq ($(strip $(BUILD_MTK_API_DEP)), yes)
+# telephony-common API table.
+# ============================================================
+LOCAL_MODULE := telephony-common-api
+
+LOCAL_JAVA_LIBRARIES += $(LOCAL_STATIC_JAVA_LIBRARIES) okhttp
+LOCAL_MODULE_CLASS := JAVA_LIBRARIES
+
+LOCAL_DROIDDOC_OPTIONS:= \
+		-api $(TARGET_OUT_COMMON_INTERMEDIATES)/PACKAGING/telephony-common-api.txt \
+		-nodocs \
+		-hidden
+
+include $(BUILD_DROIDDOC)
+endif
 
 # Include subdirectory makefiles
 # ============================================================

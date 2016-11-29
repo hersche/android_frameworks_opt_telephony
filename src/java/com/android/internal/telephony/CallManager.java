@@ -31,6 +31,7 @@ import android.telephony.TelephonyManager;
 import android.telephony.PhoneStateListener;
 import android.telephony.ServiceState;
 import android.telephony.Rlog;
+import android.telephony.SubscriptionManager;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -60,7 +61,7 @@ public final class CallManager {
 
     private static final String LOG_TAG ="CallManager";
     private static final boolean DBG = true;
-    private static final boolean VDBG = false;
+    private static final boolean VDBG = true;
 
     private static final int EVENT_DISCONNECT = 100;
     private static final int EVENT_PRECISE_CALL_STATE_CHANGED = 101;
@@ -190,7 +191,8 @@ public final class CallManager {
 
     protected final RegistrantList mTtyModeReceivedRegistrants
     = new RegistrantList();
-
+    private long mLastMmiCompletedTime = 0;
+    private static final long MMI_COMPLETED_MIN_INTERVAL = 100;
     private CallManager() {
         mPhones = new ArrayList<Phone>();
         mRingingCalls = new ArrayList<Call>();
@@ -2416,6 +2418,16 @@ public final class CallManager {
                     break;
                 case EVENT_MMI_COMPLETE:
                     if (VDBG) Rlog.d(LOG_TAG, " handleMessage (EVENT_MMI_COMPLETE)");
+                    if (VDBG) {
+                        Rlog.d(LOG_TAG, " handleMessage (EVENT_MMI_COMPLETE)"
+                            + ", handler = " + this);
+                    }
+                    long curTime = System.currentTimeMillis();
+                    if ((curTime >= mLastMmiCompletedTime)
+                            && ((curTime - mLastMmiCompletedTime) < MMI_COMPLETED_MIN_INTERVAL)) {
+                        break;
+                    }
+                    mLastMmiCompletedTime = curTime;
                     mMmiCompleteRegistrants.notifyRegistrants((AsyncResult) msg.obj);
                     break;
                 case EVENT_ECM_TIMER_RESET:
@@ -2475,21 +2487,22 @@ public final class CallManager {
         Call call;
         StringBuilder b = new StringBuilder();
         for (int i = 0; i < TelephonyManager.getDefault().getPhoneCount(); i++) {
+        int subId = SubscriptionManager.getSubIdUsingPhoneId(i);
             b.append("CallManager {");
-            b.append("\nstate = " + getState(i));
-            call = getActiveFgCall(i);
+            b.append("\nstate = " + getState(subId));
+            call = getActiveFgCall(subId);
             if (call != null) {
-                b.append("\n- Foreground: " + getActiveFgCallState(i));
+                b.append("\n- Foreground: " + getActiveFgCallState(subId));
                 b.append(" from " + call.getPhone());
-                b.append("\n  Conn: ").append(getFgCallConnections(i));
+                b.append("\n  Conn: ").append(getFgCallConnections(subId));
             }
-            call = getFirstActiveBgCall(i);
+            call = getFirstActiveBgCall(subId);
             if (call != null) {
                 b.append("\n- Background: " + call.getState());
                 b.append(" from " + call.getPhone());
-                b.append("\n  Conn: ").append(getBgCallConnections(i));
+                b.append("\n  Conn: ").append(getBgCallConnections(subId));
             }
-            call = getFirstActiveRingingCall(i);
+            call = getFirstActiveRingingCall(subId);
             if (call != null) {
                 b.append("\n- Ringing: " +call.getState());
                 b.append(" from " + call.getPhone());
